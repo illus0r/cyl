@@ -16,7 +16,6 @@ palette = palette.map(color => {
   color = color.match(/(.{2})/g).map(v=>Number("0x"+v)/255)
   return color
 })
-console.log('palette:',palette)
 
 let gl = new Gl('canvas')
 let pr = new Pr(gl,loadText('./shader.frag'))
@@ -59,7 +58,7 @@ function frame() {
 
 		prDr.uf({
 			'time': time,
-			'res': [u_tx[0].w,u_tx[0].h],
+			'res': [gl.canvas.width,gl.canvas.height],
 			'tx': u_tx[0],
 			'frame': u_frame,
 			'rndjs': rndjs,
@@ -71,7 +70,7 @@ function frame() {
 	}
 	requestAnimationFrame(frame)
 }
-frame()
+if(gl.getProgramParameter(pr, gl.LINK_STATUS)) frame()
 
 document.addEventListener('keydown', (event) => {
 	if (event.code === 'Space') {

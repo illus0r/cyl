@@ -1,7 +1,6 @@
 #version 300 es
 precision highp float;
 uniform sampler2D tx;
-uniform sampler2D tx_rul;
 uniform float frame;
 uniform float pass;
 uniform float time;
