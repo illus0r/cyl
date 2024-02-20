@@ -15,13 +15,15 @@ let pr = new Pr(gl,
 	`#version 300 es
 precision highp float;
 uniform sampler2D tx;
-uniform sampler2D tx_rul;
 uniform float frame;
 uniform float pass;
 uniform float time;
 uniform vec2 res;
 uniform vec2 mouse;
 uniform float rndjs[4];
+uniform sampler2D tx_brim;
+uniform sampler2D tx_crown;
+uniform sampler2D tx_crown_tip;
 out vec4 o;
 
 #define sabs(p) sqrt((p)*(p)+1e-3)
@@ -29,13 +31,22 @@ out vec4 o;
 #define smax(a,b) (a+b+sabs(a-b))*.5
 
 #define rot(a) mat2(cos(a),-sin(a),sin(a),cos(a))
+#define BRIM 1
+#define CROWN 2
+#define CROWN_TIP 3
 
 int txId = 0;
 vec2 txUv = vec2(1.);
 
+float sdSegment( in vec2 p, in vec2 a, in vec2 b ){
+    vec2 pa = p-a, ba = b-a;
+    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
+    return length( pa - ba*h );
+}
+
 float sdf(vec3 p){
 	p.z-=4.;
-	p.y+=.2;
+	p.zx*=rot(time);
 	p.zy*=rot(-.5+.1*sin(time));
 	vec3 pII = p;
 	p.xz = vec2(length(p.xz),0.);
@@ -43,26 +54,33 @@ float sdf(vec3 p){
 	float e=999.;
 	// ← 1
 
-	// sides
-	p = pI;
-	float sides=p.x-.3-p.y*.1;
+	float brimR = .8;
+	float crownR = .5;
+	float h = .8;
+	float brim = sdSegment(p.xy,vec2(brimR,-.5*h),vec2(crownR,-.5*h));
+	float crown = sdSegment(p.xy,vec2(crownR,-.5*h),vec2(crownR,.5*h));
+	float crownTip = sdSegment(p.xy,vec2(0,.5*h),vec2(crownR,.5*h));
 
-	// sides bottom
-	p=pI;
-	sides=max(-p.y,e);
+	txId = BRIM;
+	txUv = vec2(pII.xz/brimR)*.5+.5;
+	e = brim;
 
-	// cap
-	p=pI;
-  float cap =p.y-.7;
+	if(e>crown){
+		txId = CROWN;
+		txUv = vec2((p.y+h/2.)/h, atan(pII.x,pII.z)/2./3.1415);
+		e = crown;
+	}
+	if(e>crownTip){
+		txId = CROWN_TIP;
+		txUv = vec2(pII.xz/crownR)*.5+.5;
+		e = crownTip;
+	}
 
-	p=pI;
-	p.x-=.5;
-	p.x=max(0.,p.x);
-	p.xy -= clamp(p.xy,-.01,.01);
-	e=min(length(p)-.0001,e);
+	e = min(min(brim,crown),crownTip)-.01;
+
 
 	// slice hat
-	e = max(-pII.z,e);
+	// e = max(-pII.z,e);
 
 
 	return e;
@@ -75,15 +93,26 @@ void main(){
 	float j,d,e=1.;
 	vec3 p,pI;
 	for(;j++<99.&&e>1e-4;){
-		p=normalize(vec3(uv,6.))*d+.0001;
+		p=normalize(vec3(uv,3.))*d+.0001;
 
 		e=sdf(p);
 
 		d+=e;
 	}
-	o+=3./j;
+	// o+=3./j;
+	if(d<9.)o++;
 
-	o.rg*=txUv;
+	switch(txId){
+		case BRIM:
+		o *= texture(tx_brim,txUv);
+		break;
+		case CROWN:
+		o *= texture(tx_crown,txUv);
+		break;
+		case CROWN_TIP:
+		o *= texture(tx_crown_tip,txUv);
+		break;
+	}
 	o.a=1.;
 }
 
@@ -91,6 +120,9 @@ void main(){
 let prDr = new Pr(gl)
 
 let u_tx=[]
+let txBrim = new Tx(gl, {src:'1.png',loc:4})
+let txCrown = new Tx(gl, {src:'2.png',loc:5})
+let txCrownTip = new Tx(gl, {src:'3.png',loc:6})
 window.addEventListener('resize',resize, true)
 window.dispatchEvent(new Event('resize'))
 
@@ -110,6 +142,9 @@ function frame() {
 			'time': time,
 			'res': [u_tx[0].w,u_tx[0].h],
 			'tx': u_tx[0],
+			'tx_brim': txBrim,
+			'tx_crown': txCrown,
+			'tx_crown_tip': txCrownTip,
 			'frame': u_frame,
 			'mouse': mouse,
 			'rndjs': rndjs,
