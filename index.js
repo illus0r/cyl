@@ -5,7 +5,7 @@ import {Gl} from './shdr/gl.js'
 import {Pr} from './shdr/pr.js'
 import {Tx} from './shdr/tx.js'
 import {rsz} from './shdr/rsz.js'
-
+ import {textures} from "./textures.js"
 let isPlaying = true
 let rndjs=[...Array(4)].map(_=>[fxrand()])
 let mouse = [.5, .5];
@@ -86,6 +86,8 @@ float sdf(vec3 p){
 	return e;
 }
 
+${textures}
+
 void main(){
 	vec2 uv = (gl_FragCoord.xy*2.-res)/res.y;
 	vec2 uvI = uv;
@@ -104,13 +106,13 @@ void main(){
 
 	switch(txId){
 		case BRIM:
-		o *= texture(tx_brim,txUv);
+		o *= texture_tx_brim(txUv);
 		break;
 		case CROWN:
-		o *= texture(tx_crown,txUv);
+		o *= texture_tx_crown(txUv);
 		break;
 		case CROWN_TIP:
-		o *= texture(tx_crown_tip,txUv);
+		o *= texture_tx_crown_tip(txUv);
 		break;
 	}
 	o.a=1.;
