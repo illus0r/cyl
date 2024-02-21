@@ -33,7 +33,9 @@ out vec4 o;
 #define rot(a) mat2(cos(a),-sin(a),sin(a),cos(a))
 #define BRIM 1
 #define CROWN 2
-#define CROWN_TIP 3
+#define TIP 3
+#define BRIM_BOT 4
+#define CROWN_IN 5
 
 int txId = 0;
 vec2 txUv = vec2(1.);
@@ -47,9 +49,9 @@ float sdSegment( in vec2 p, in vec2 a, in vec2 b ){
 float sdf(vec3 p){
 	p.z-=4.;
 	p.zx*=rot(time);
-	p.zy*=rot(-.5+.1*sin(time));
+	p.zy*=rot(-.5+.8*sin(time));
 	vec3 pII = p;
-	p.xz = vec2(length(p.xz),0.);
+	// p.xz = vec2(length(p.xz),0.);
 	vec3 pI = p;
 	float e=999.;
 	// ← 1
@@ -57,11 +59,18 @@ float sdf(vec3 p){
 	float brimR = .8;
 	float crownR = .5;
 	float h = .8;
-	float brim = sdSegment(p.xy,vec2(brimR,-.5*h),vec2(crownR,-.5*h));
-	float crown = sdSegment(p.xy,vec2(crownR,-.5*h),vec2(crownR,.5*h));
-	float crownTip = sdSegment(p.xy,vec2(0,.5*h),vec2(crownR,.5*h));
+
+	float t = p.y - h/2.;
+	float b = (p.y + h/2.)*.5;
+	float s = (length(p.xz)-crownR)*.5;
+	float S = length(p.xz)-brimR;
+
+	float brim = max(abs(b),max(-s+.001,S));
+	float crown = max(abs(s),max(t,-b));
+	float tip = max(s,abs(t));
 
 	txId = BRIM;
+	if(b<0.)txId=BRIM_BOT;
 	txUv = vec2(pII.xz/brimR)*.5+.5;
 	e = brim;
 
@@ -69,18 +78,15 @@ float sdf(vec3 p){
 		txId = CROWN;
 		txUv = vec2((p.y+h/2.)/h, atan(pII.x,pII.z)/2./3.1415);
 		e = crown;
+		if(s<0.)txId=CROWN_IN;
 	}
-	if(e>crownTip){
-		txId = CROWN_TIP;
+	if(e>tip){
+		txId = TIP;
 		txUv = vec2(pII.xz/crownR)*.5+.5;
-		e = crownTip;
+		e = tip;
 	}
 
-	e = min(min(brim,crown),crownTip)-.01;
-
-
-	// slice hat
-	// e = max(-pII.z,e);
+	e = min(min(brim,crown),tip)-.01;
 
 
 	return e;
@@ -111,8 +117,14 @@ void main(){
 		case CROWN:
 		o *= texture_tx_crown(txUv);
 		break;
-		case CROWN_TIP:
+		case TIP:
 		o *= texture_tx_crown_tip(txUv);
+		break;
+			case BRIM_BOT:
+		o *= texture_tx_brim(txUv)*.2;
+		break;
+		case CROWN_IN:
+		o *= texture_tx_crown(txUv)*.2;
 		break;
 	}
 	o.a=1.;
