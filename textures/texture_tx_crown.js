@@ -13,8 +13,10 @@ float tx_hor(vec2 uv) {
 }
 
 float tx_cells(vec2 uv) {
-    uv = fract(uv*vec2(5, 20)) - 0.5;
-    float d = ss(length(uv)-${rnd(0.4,0.2)});
+    uv *= vec2(5, 20);
+    vec2 id = floor(uv);
+    uv = fract(uv) - 0.5;
+    float d = ss(length(uv)-${rnd(0.4,0.2)});    
     return d;
 }
 
@@ -24,7 +26,7 @@ vec4 texture_tx_crown(vec2 uv) {
         "vert",
         "hor"
     ])}(uv) + ${rnd(5)};
-    // ${rndb()?`d = mix(${rnd(5)}, d, ss(uv.x-0.2));` : ""}
+    // ${rndb() ? `d = mix(${rnd(5)}, d, ss(uv.x-0.2));` : ""}
     return vec4(palette(d),1);
 }
 
