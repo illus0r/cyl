@@ -48,7 +48,7 @@ float sdSegment( in vec2 p, in vec2 a, in vec2 b ){
 
 float sdf(vec3 p){
 	p.z-=4.;
-	p.zy*=rot(time);
+	// p.zy*=rot(time);
 	// p.zy*=rot(-.5+.0*sin(time));
 	vec3 pII = p;
 	// p.xz = vec2(length(p.xz),0.);
