@@ -5,7 +5,7 @@ import {Gl} from './shdr/gl.js'
 import {Pr} from './shdr/pr.js'
 import {Tx} from './shdr/tx.js'
 import {rsz} from './shdr/rsz.js'
- import {textures} from "./textures.js"
+import {textures} from "./textures/textures.js"
 let isPlaying = true
 let rndjs=[...Array(4)].map(_=>[fxrand()])
 let mouse = [.5, .5];
@@ -120,11 +120,11 @@ void main(){
 		case TIP:
 		o *= texture_tx_crown_tip(txUv);
 		break;
-			case BRIM_BOT:
-		o *= texture_tx_brim(txUv)*.2;
+		case BRIM_BOT:
+		o *= texture_tx_brim_bottom(txUv);
 		break;
 		case CROWN_IN:
-		o *= texture_tx_crown(txUv)*.2;
+		o *= texture_tx_crown_inner(txUv);
 		break;
 	}
 	o.a=1.;
