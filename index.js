@@ -38,6 +38,16 @@ out vec4 o;
 #define BG 6
 #define FG 7
 
+#define F float
+#define V vec2
+#define W vec3
+#define L length
+#define N normalize 
+#define S(x) sin(x+2.*sin(x+4.*sin(x)))
+#define rnd(x) fract(1.1e4*sin(mod(111.1*(x),3.14)+.1))
+#define col(x) (cos(x+W(0,.3,.6)*6.28)*.5+.5)
+#define sfloor(x) smoothstep(0.,.9,fract(x))+floor(x)
+
 int txId = 0;
 vec2 txUv = vec2(1.);
 
@@ -48,6 +58,7 @@ float sdSegment( in vec2 p, in vec2 a, in vec2 b ){
 }
 
 float sdf(vec3 p){
+	p.zy*=rot(.5);
 	vec3 pII = p;
 	// p.xz = vec2(length(p.xz),0.);
 	vec3 pI = p;
@@ -58,14 +69,27 @@ float sdf(vec3 p){
 	float crownR = .5;
 	float h = .8;
 
+	// top plane
 	float t = p.y - h/2.;
+	// bottom plane
 	float b = (p.y + h/2.)*.5;
+	// small cyl
 	float s = (length(p.xz)-crownR)*.5;
+	// large cyl
 	float S = length(p.xz)-brimR;
 
-	float brim = max(abs(b),max(-s+.001,S));
-	float crown = max(abs(s),max(t,-b));
-	float tip = max(s,abs(t));
+
+	// float brimCyl=max(0.,abs(length(p.xz)-.5)-.2);
+	float x = length(p.xz);
+	x -=clamp(x,crownR,brimR);
+	// float brimCyl=max(0.,x-clamp(x,0.,brimR-crownR));
+	float brimCyl=x;
+	float brim = length(vec2(brimCyl,b))-.005;
+
+	float crownPlane = max(0.,abs(p.y)-h/2.);
+	float crown = length(vec2(s,crownPlane))-.005;
+	
+	float tip = length(vec2(max(0.,s),t))-.005;
 
 	txId = BRIM;
 	if(b<0.)txId=BRIM_BOT;
@@ -112,13 +136,13 @@ void main(){
 
 		float eBg = (+1.-p.z)/rd.z;
 		float eFg = (-1.-p.z)/rd.z;
-		p.zy*=rot(time);
-		p.zy*=rot(-.5);
-		e=sdf(p);
+		// p.zy*=rot(time);
 
+		e=sdf(p);
 		// float eBg = plaIntersect(p,vec3(rd.x,rd.yz*rot(-time)),vec4(0,0,1,0))+.001;
 		if(eBg<0.) eBg = 9999.;
 		if(eFg<0.) eFg = 9999.;
+
 		// if(e>eFg){
 		// 	e=eFg;
 		// 	txId = FG;
@@ -140,6 +164,7 @@ void main(){
 				return;
 			}
 		}
+
 		if(e>eFg && eBg>eFg){
 			e=eFg+.001;
 			txUv = vec2((ro+rd*(d+eFg)).xy);
