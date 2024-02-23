@@ -15,15 +15,14 @@ let pr = new Pr(gl,
 	`#version 300 es
 precision highp float;
 uniform sampler2D tx;
+uniform sampler2D tx_bg;
+uniform sampler2D tx_fg;
 uniform float frame;
 uniform float pass;
 uniform float time;
 uniform vec2 res;
 uniform vec2 mouse;
 uniform float rndjs[4];
-uniform sampler2D tx_brim;
-uniform sampler2D tx_crown;
-uniform sampler2D tx_crown_tip;
 out vec4 o;
 
 #define sabs(p) sqrt((p)*(p)+1e-3)
@@ -36,6 +35,8 @@ out vec4 o;
 #define TIP 3
 #define BRIM_BOT 4
 #define CROWN_IN 5
+#define BG 6
+#define FG 7
 
 int txId = 0;
 vec2 txUv = vec2(1.);
@@ -47,9 +48,6 @@ float sdSegment( in vec2 p, in vec2 a, in vec2 b ){
 }
 
 float sdf(vec3 p){
-	p.z-=4.;
-	// p.zy*=rot(time);
-	p.zy*=rot(-.5);
 	vec3 pII = p;
 	// p.xz = vec2(length(p.xz),0.);
 	vec3 pI = p;
@@ -89,6 +87,8 @@ float sdf(vec3 p){
 	e = min(min(brim,crown),tip)-.01;
 
 
+
+
 	return e;
 }
 
@@ -99,34 +99,101 @@ void main(){
 	vec2 uvI = uv;
 
 	float j,d,e=1.;
-	vec3 p,pI;
+	vec3 p,pI,rd=normalize(vec3(uv,3.)),ro=vec3(0,0,-4);
+	// float dBg = abs(.5-ro.z)/rd.z;
+	// bool isBgPassed = false;
+	// float dFg = abs(p.z+1.)/rd.z+.0001;
 	for(;j++<99.&&e>1e-4;){
-		p=normalize(vec3(uv,3.))*d+.0001;
+		p=rd*d+.0001+ro;
 
+		// p.zy*=rot(time);
+		p.zy*=rot(-.5);
 		e=sdf(p);
 
+		float eBg = (+.2-p.z)/rd.z;if(eBg<0.) eBg = 9999.;
+		float eFg = (-.05-p.z)/rd.z;if(eFg<0.) eFg = 9999.;
+		// if(e>eFg){
+		// 	e=eFg;
+		// 	txId = FG;
+		// 	txUv = vec2((rd*(d+e)).xy);
+		// 	// o=vec4(1,0,0,1);
+		// 	// return;
+		// 	o=vec4(2./d);
+		// 	o.a=1.;
+		// 	return;
+		// }
+
+		if(e>eBg){
+			txId = BG;
+			txUv = vec2((ro+rd*(d+eBg)).xy);
+			vec4 t= texture(tx_bg,txUv*8.);
+			e=eBg;
+			o = t;
+			return;
+		}
+		if(e>eFg){
+			txId = FG;
+			txUv = vec2((ro+rd*(d+eFg)).xy);
+			vec4 t= texture(tx_fg,txUv*5.);
+			if(t.r<.5){
+				e=eFg;
+				o *= 0.;
+				o.a=1.;
+				return;
+			}
+			else{o.r=1.; o.a=1.;return;}
+			e=eFg+.001;
+		}
+
 		d+=e;
+
+		// float eBg = 0.;
+		// if(d>dBg){
+		// 	d=dBg+.0001;
+		// 	txId = BG;
+		// 	txUv = vec2((rd*(d+e)).xy);
+		// 	vec4 t= texture(tx_bg,txUv);
+		// 	if(t.r<.5){
+		// 		o = t;
+		// 		o.r=1.;
+		// 		return;
+		// 	}
+		// }
+
 	}
-	// o+=3./j;
-	if(d<9.)o++;
+	// o+=3./j; o.a=1.;return;
+	if(d<9.){
+		o++;
+	}
+	// else{
+	// 	// o=texture(tx_bg,fract(uvI));
+	// 	return;
+	// }
 
 	switch(txId){
 		case BRIM:
-		o *= texture_tx_brim(txUv);
-		break;
+			o *= texture_tx_brim(txUv);
+			break;
 		case CROWN:
-		o *= texture_tx_crown(txUv);
-		break;
+			o *= texture_tx_crown(txUv);
+			break;
 		case TIP:
-		o *= texture_tx_crown_tip(txUv);
-		break;
+			o *= texture_tx_crown_tip(txUv);
+			break;
 		case BRIM_BOT:
-		o *= texture_tx_brim_bottom(txUv);
-		break;
+			o *= texture_tx_brim_bottom(txUv);
+			break;
 		case CROWN_IN:
-		o *= texture_tx_crown_inner(txUv);
-		break;
+			o *= texture_tx_crown_inner(txUv);
+			break;
+		case BG:
+			o *= texture(tx_bg,txUv);
+			break;
+		case FG:
+			o *= texture(tx_fg,txUv);
+			break;
 	}
+	// o=vec4(2./d);
 	o.a=1.;
 }
 
@@ -134,9 +201,8 @@ void main(){
 let prDr = new Pr(gl)
 
 let u_tx=[]
-let txBrim = new Tx(gl, {src:'1.png',loc:4})
-let txCrown = new Tx(gl, {src:'2.png',loc:5})
-let txCrownTip = new Tx(gl, {src:'3.png',loc:6})
+let txBg = new Tx(gl, {src:'1.png',loc:4})
+let txFg = new Tx(gl, {src:'2.png',loc:5})
 window.addEventListener('resize',resize, true)
 window.dispatchEvent(new Event('resize'))
 
@@ -156,9 +222,8 @@ function frame() {
 			'time': time,
 			'res': [u_tx[0].w,u_tx[0].h],
 			'tx': u_tx[0],
-			'tx_brim': txBrim,
-			'tx_crown': txCrown,
-			'tx_crown_tip': txCrownTip,
+			'tx_bg': txBg,
+			'tx_fg': txFg,
 			'frame': u_frame,
 			'mouse': mouse,
 			'rndjs': rndjs,
