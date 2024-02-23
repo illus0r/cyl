@@ -94,24 +94,31 @@ float sdf(vec3 p){
 
 ${textures}
 
+float plaIntersect( in vec3 ro, in vec3 rd, in vec4 p ){
+    return -(dot(ro,p.xyz)+p.w)/dot(rd,p.xyz);
+}
+
 void main(){
 	vec2 uv = (gl_FragCoord.xy*2.-res)/res.y;
 	vec2 uvI = uv;
 
-	float j,d,e=1.;
+	float i,d,e=1.;
 	vec3 p,pI,rd=normalize(vec3(uv,3.)),ro=vec3(0,0,-4);
 	// float dBg = abs(.5-ro.z)/rd.z;
 	// bool isBgPassed = false;
 	// float dFg = abs(p.z+1.)/rd.z+.0001;
-	for(;j++<99.&&e>1e-4;){
+	for(;i++<99.&&e>1e-4;){
 		p=rd*d+.0001+ro;
 
-		// p.zy*=rot(time);
+		float eBg = (+1.-p.z)/rd.z;
+		float eFg = (-1.-p.z)/rd.z;
+		p.zy*=rot(time);
 		p.zy*=rot(-.5);
 		e=sdf(p);
 
-		float eBg = (+.2-p.z)/rd.z;if(eBg<0.) eBg = 9999.;
-		float eFg = (-.05-p.z)/rd.z;if(eFg<0.) eFg = 9999.;
+		// float eBg = plaIntersect(p,vec3(rd.x,rd.yz*rot(-time)),vec4(0,0,1,0))+.001;
+		if(eBg<0.) eBg = 9999.;
+		if(eFg<0.) eFg = 9999.;
 		// if(e>eFg){
 		// 	e=eFg;
 		// 	txId = FG;
@@ -123,25 +130,26 @@ void main(){
 		// 	return;
 		// }
 
-		if(e>eBg){
+		if(e>eBg && eFg>eBg){
 			txId = BG;
 			txUv = vec2((ro+rd*(d+eBg)).xy);
 			vec4 t= texture(tx_bg,txUv*8.);
 			e=eBg;
 			o = t;
+			// if(i==9.)	o.r=1.;
 			return;
 		}
-		if(e>eFg){
+		if(e>eFg && eBg>eFg){
+			e=eFg+.001;
 			txId = FG;
 			txUv = vec2((ro+rd*(d+eFg)).xy);
 			vec4 t= texture(tx_fg,txUv*5.);
 			if(t.r<.5){
-				e=eFg;
 				o *= 0.;
 				o.a=1.;
 				return;
 			}
-			else{o.r=1.; o.a=1.;return;}
+			// else{o.r=1.; o.a=1.;return;}
 			e=eFg+.001;
 		}
 
@@ -161,7 +169,7 @@ void main(){
 		// }
 
 	}
-	// o+=3./j; o.a=1.;return;
+	// o+=3./i; o.a=1.;return;
 	if(d<9.){
 		o++;
 	}
@@ -187,10 +195,11 @@ void main(){
 			o *= texture_tx_crown_inner(txUv);
 			break;
 		case BG:
-			o *= texture(tx_bg,txUv);
+			o =vec4(1,1,0,1);//texture(tx_bg,txUv);
 			break;
 		case FG:
-			o *= texture(tx_fg,txUv);
+			o =vec4(1,0,1,1);//texture(tx_bg,txUv);
+			// o *= texture(tx_fg,txUv);
 			break;
 	}
 	// o=vec4(2./d);
