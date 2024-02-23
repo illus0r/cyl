@@ -103,7 +103,7 @@ void main(){
 	vec2 uvI = uv;
 
 	float i,d,e=1.;
-	vec3 p,pI,rd=normalize(vec3(uv,3.)),ro=vec3(0,0,-4);
+	vec3 p,pI,rd=normalize(vec3(uv,-3.)),ro=vec3(0,0,4);
 	// float dBg = abs(.5-ro.z)/rd.z;
 	// bool isBgPassed = false;
 	// float dFg = abs(p.z+1.)/rd.z+.0001;
@@ -131,27 +131,28 @@ void main(){
 		// }
 
 		if(e>eBg && eFg>eBg){
-			txId = BG;
+			e=eBg+.001;
 			txUv = vec2((ro+rd*(d+eBg)).xy);
-			vec4 t= texture(tx_bg,txUv*8.);
-			e=eBg;
-			o = t;
-			// if(i==9.)	o.r=1.;
-			return;
+			vec4 t= texture(tx_bg,txUv*3.);
+			if(t.r<.5){
+				txId = BG;
+				o=vec4(1);
+				return;
+			}
 		}
 		if(e>eFg && eBg>eFg){
 			e=eFg+.001;
-			txId = FG;
 			txUv = vec2((ro+rd*(d+eFg)).xy);
-			vec4 t= texture(tx_fg,txUv*5.);
+			vec4 t= texture(tx_fg,txUv*3.1415);
 			if(t.r<.5){
-				o *= 0.;
-				o.a=1.;
+				txId = FG;
+				o=vec4(1);
 				return;
 			}
 			// else{o.r=1.; o.a=1.;return;}
-			e=eFg+.001;
 		}
+
+
 
 		d+=e;
 
