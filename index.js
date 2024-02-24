@@ -51,10 +51,12 @@ out vec4 o;
 int txId = 0;
 vec2 txUv = vec2(1.);
 
-float sdSegment( in vec2 p, in vec2 a, in vec2 b ){
-    vec2 pa = p-a, ba = b-a;
-    float h = clamp( dot(pa,ba)/dot(ba,ba), 0.0, 1.0 );
-    return length( pa - ba*h );
+vec3 pcg(vec3 vv){
+    uvec3 v=uvec3(abs(vv+1e-6)*1664525.)+1013904223u;
+    v+=v.yzx*v.zxy;
+    v^=v>>16u;
+    v+=v.yzx*v.zxy;
+    return vec3(v%10000u)/10000.;
 }
 
 float sdf(vec3 p){
@@ -118,118 +120,111 @@ float sdf(vec3 p){
 
 ${textures}
 
-float plaIntersect( in vec3 ro, in vec3 rd, in vec4 p ){
-    return -(dot(ro,p.xyz)+p.w)/dot(rd,p.xyz);
+vec3 normal(vec3 p){
+	float d=sdf(p); vec2 e=vec2(0,.0001);
+	return normalize(vec3(d-sdf(p-e.yxx),d-sdf(p-e.xyx),d-sdf(p-e.xxy)));
 }
 
 void main(){
-	vec2 uv = (gl_FragCoord.xy*2.-res)/res.y;
+	vec2 duv = fract(frame*vec2(.6180339887, .324717957));
+
+	vec2 uv = (gl_FragCoord.xy*2.+2.*duv-res)/res.y;
 	vec2 uvI = uv;
+	vec3 nPl = vec3(0);
 
 	float i,d,e=1.;
 	vec3 p,pI,rd=normalize(vec3(uv,-3.)),ro=vec3(0,0,4);
 	// float dBg = abs(.5-ro.z)/rd.z;
 	// bool isBgPassed = false;
 	// float dFg = abs(p.z+1.)/rd.z+.0001;
-	for(;i++<99.&&e>1e-4;){
-		p=rd*d+.0001+ro;
 
-		float eBg = (+1.-p.z)/rd.z;
-		float eFg = (-1.-p.z)/rd.z;
-		// p.zy*=rot(time);
-
-		e=sdf(p);
-		// float eBg = plaIntersect(p,vec3(rd.x,rd.yz*rot(-time)),vec4(0,0,1,0))+.001;
-		if(eBg<0.) eBg = 9999.;
-		if(eFg<0.) eFg = 9999.;
-
-		// if(e>eFg){
-		// 	e=eFg;
-		// 	txId = FG;
-		// 	txUv = vec2((rd*(d+e)).xy);
-		// 	// o=vec4(1,0,0,1);
-		// 	// return;
-		// 	o=vec4(2./d);
-		// 	o.a=1.;
-		// 	return;
-		// }
-
-		if(e>eBg && eFg>eBg){
-			e=eBg+.001;
-			txUv = vec2((ro+rd*(d+eBg)).xy);
-			vec4 t= texture(tx_bg,txUv*3.);
-			if(t.r<.5){
-				txId = BG;
-				o=vec4(1);
-				return;
+	vec3 c = vec3(1);
+	bool light = false;
+	for(float r=0.;r<2.;r++){
+		for(i=0.,d=0.,e=1.;i++<99.&&e>1e-4;){
+			p=rd*d+.0001+ro;
+			if(p.y>4.){
+				c*=vec3(1.);
+				light = true;
+				break;
 			}
+
+			float eBg = (+1.-p.z)/rd.z;
+			float eFg = (-1.-p.z)/rd.z;
+
+			e=sdf(p);
+			if(eBg<0.) eBg = 9999.;
+			if(eFg<0.) eFg = 9999.;
+
+			//{{{
+			// if(e>eBg && eFg>eBg){
+			// 	e=eBg+.001;
+			// 	txUv = vec2((ro+rd*(d+eBg)).xy);
+			// 	vec4 t= texture(tx_bg,txUv*3.);
+			// 	if(t.r<.5){
+			// 		txId = BG;
+			// 		nPl = vec3(0,0,sign(eBg));
+			// 		break;
+			// 	}
+			// }
+
+			// if(e>eFg && eBg>eFg){
+			// 	e=eFg+.001;
+			// 	txUv = vec2((ro+rd*(d+eFg)).xy);
+			// 	vec4 t= texture(tx_fg,txUv*3.1415);
+			// 	if(t.r<.5){
+			// 		txId = FG;
+			// 		nPl = vec3(0,0,sign(eFg));
+			// 		break;
+			// 	}
+			// }
+			//}}}
+
+			d+=e;
+		}
+		if(light) break;
+		vec3 n = normal(p);
+		if(txId==BG || txId==FG) n=nPl;
+		// o.rgb=n*.5+.5;o.a=1.;  return;
+		c.rgb*=n*.5+.5;
+
+
+		ro=p+n*.002;
+		rd=reflect(rd,n);
+		rd+=pcg(rd+p+time+r)*.5;
+
+		switch(txId){
+			case BRIM:
+				c *= texture_tx_brim(txUv).rgb;
+				break;
+			case CROWN:
+				c *= texture_tx_crown(txUv).rgb;
+				break;
+			case TIP:
+				c *= texture_tx_crown_tip(txUv).rgb;
+				break;
+			case BRIM_BOT:
+				c *= texture_tx_brim_bottom(txUv).rgb;
+				break;
+			case CROWN_IN:
+				c *= texture_tx_crown_inner(txUv).rgb;
+				break;
+			case BG:
+				c *=vec4(1,1,0,1).rgb;
+				break;
+			case FG:
+				c *=vec4(1,0,1,1).rgb;
+				break;
 		}
 
-		if(e>eFg && eBg>eFg){
-			e=eFg+.001;
-			txUv = vec2((ro+rd*(d+eFg)).xy);
-			vec4 t= texture(tx_fg,txUv*3.1415);
-			if(t.r<.5){
-				txId = FG;
-				o=vec4(1);
-				return;
-			}
-			// else{o.r=1.; o.a=1.;return;}
-		}
-
-
-
-		d+=e;
-
-		// float eBg = 0.;
-		// if(d>dBg){
-		// 	d=dBg+.0001;
-		// 	txId = BG;
-		// 	txUv = vec2((rd*(d+e)).xy);
-		// 	vec4 t= texture(tx_bg,txUv);
-		// 	if(t.r<.5){
-		// 		o = t;
-		// 		o.r=1.;
-		// 		return;
-		// 	}
-		// }
-
 	}
-	// o+=3./i; o.a=1.;return;
-	if(d<9.){
-		o++;
-	}
-	// else{
-	// 	// o=texture(tx_bg,fract(uvI));
-	// 	return;
-	// }
+	if(!light) c*=0.;
 
-	switch(txId){
-		case BRIM:
-			o *= texture_tx_brim(txUv);
-			break;
-		case CROWN:
-			o *= texture_tx_crown(txUv);
-			break;
-		case TIP:
-			o *= texture_tx_crown_tip(txUv);
-			break;
-		case BRIM_BOT:
-			o *= texture_tx_brim_bottom(txUv);
-			break;
-		case CROWN_IN:
-			o *= texture_tx_crown_inner(txUv);
-			break;
-		case BG:
-			o =vec4(1,1,0,1);//texture(tx_bg,txUv);
-			break;
-		case FG:
-			o =vec4(1,0,1,1);//texture(tx_bg,txUv);
-			// o *= texture(tx_fg,txUv);
-			break;
-	}
-	// o=vec4(2./d);
+	o.rgb = c;
+	o=clamp(o,vec4(0),vec4(1));
+	o=mix(texelFetch(tx,ivec2(gl_FragCoord.xy),0),o,1./(frame+1.));
 	o.a=1.;
+
 }
 
 `)
