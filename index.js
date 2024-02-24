@@ -143,8 +143,9 @@ void main(){
 	for(float r=0.;r<2.;r++){
 		for(i=0.,d=0.,e=1.;i++<99.&&e>1e-4;){
 			p=rd*d+.0001+ro;
-			if(p.y>4.){
-				c*=vec3(1.);
+
+			if(p.y>4.|| p.x>4.){
+				c*=vec3(4.);
 				light = true;
 				break;
 			}
@@ -157,27 +158,30 @@ void main(){
 			if(eFg<0.) eFg = 9999.;
 
 			//{{{
-			// if(e>eBg && eFg>eBg){
-			// 	e=eBg+.001;
-			// 	txUv = vec2((ro+rd*(d+eBg)).xy);
-			// 	vec4 t= texture(tx_bg,txUv*3.);
-			// 	if(t.r<.5){
-			// 		txId = BG;
-			// 		nPl = vec3(0,0,sign(eBg));
-			// 		break;
-			// 	}
-			// }
 
-			// if(e>eFg && eBg>eFg){
-			// 	e=eFg+.001;
-			// 	txUv = vec2((ro+rd*(d+eFg)).xy);
-			// 	vec4 t= texture(tx_fg,txUv*3.1415);
-			// 	if(t.r<.5){
-			// 		txId = FG;
-			// 		nPl = vec3(0,0,sign(eFg));
-			// 		break;
-			// 	}
-			// }
+			if(e>eBg && eFg>eBg){
+				e=eBg+.001;
+				txUv = vec2((ro+rd*(d+eBg)).xy);
+				vec4 t= texture(tx_bg,txUv*3.);
+				if(t.r<.5){
+					txId = BG;
+					nPl = vec3(0,0,sign(eBg));
+					break;
+				}
+			}
+
+			if(e>eFg && eBg>eFg){
+				e=eFg+.001;
+				txUv = vec2((ro+rd*(d+eFg)).xy);
+				vec4 t= texture(tx_fg,txUv*3.1415);
+				// if(t.r<.5){
+				if(true){
+					txId = FG;
+					nPl = vec3(0,0,sign(eFg));
+					break;
+				}
+			}
+
 			//}}}
 
 			d+=e;
@@ -218,7 +222,7 @@ void main(){
 		}
 
 	}
-	if(!light) c*=0.;
+	if(!light) c*=.9;
 
 	o.rgb = c;
 	o=clamp(o,vec4(0),vec4(1));
@@ -233,13 +237,13 @@ let prDr = new Pr(gl)
 let u_tx=[]
 let txBg = new Tx(gl, {src:'1.png',loc:4})
 let txFg = new Tx(gl, {src:'2.png',loc:5})
+let u_frame=0
 window.addEventListener('resize',resize, true)
 window.dispatchEvent(new Event('resize'))
 
 let timeInit=+new Date()
 let timePrev=timeInit
 let timeNew=timeInit
-let u_frame=0
 
 function frame() {
 	timePrev=timeNew
@@ -294,6 +298,7 @@ document.addEventListener('keydown', (event) => {
 }, false)
 
 function resize(){
+	u_frame=0
 	if(u_tx.length > 0){
 		u_tx.forEach(tx=>gl.deleteTexture(tx))
 	}
