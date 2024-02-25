@@ -1,6 +1,5 @@
 "use strict";
 
-import {loadText} from './shdr/loadText.js'
 import {Gl} from './shdr/gl.js'
 import {Pr} from './shdr/pr.js'
 import {Tx} from './shdr/tx.js'
@@ -112,10 +111,7 @@ float sdf(vec3 p){
 		e = tip;
 	}
 
-	e = min(min(brim,crown),tip)-.01;
-
-
-
+e = min(min(brim,crown),tip)-.01;
 
 	return e;
 }
@@ -128,6 +124,7 @@ vec3 normal(vec3 p){
 }
 
 void main(){
+	// o=texture(tx_bg,gl_FragCoord.xy/res);return;
 	vec2 duv = fract(frame*vec2(.6180339887, .324717957));
 
 	vec2 uv = (gl_FragCoord.xy*2.+2.*duv-res)/res.y;
@@ -237,8 +234,8 @@ void main(){
 let prDr = new Pr(gl)
 
 let u_tx=[]
-let txBg = new Tx(gl, {src:ffTexture,loc:4})
-//let txBg = new Tx(gl, {src:"1.png",loc:4})
+let txBg = new Tx(gl, {pixels:ffTexture,loc:4})
+// let txBg = new Tx(gl, {src:"1.png",loc:4})
 let txFg = new Tx(gl, {src:'2.png',loc:5})
 let u_frame=0
 window.addEventListener('resize',resize, true)
@@ -249,6 +246,7 @@ let timePrev=timeInit
 let timeNew=timeInit
 
 function frame() {
+
 	timePrev=timeNew
 	timeNew=+new Date()
 	let time = (timeNew-timeInit)/1000
