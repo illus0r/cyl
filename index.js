@@ -161,7 +161,7 @@ void main(){
 			if(e>eBg && eFg>eBg){
 				e=eBg+.001;
 				txUv = vec2((ro+rd*(d+eBg)).xy);
-				vec4 t= texture(tx_bg,txUv*3.);
+				vec4 t= texture(tx_bg,(txUv+1.)/2.+vec2(0.5,1));
 				if(t.r<.5){
 					txId = BG;
 					nPl = vec3(0,0,sign(eBg));

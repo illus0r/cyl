@@ -2,7 +2,7 @@ const {PI, min, max, sin, cos, atan2, hypot, sign, pow, abs, sqrt, random} = Mat
 const TAU = PI * 2;
 const state = {last: null, lastCanvas: null};
 
-export const ffTexture = createCanvas2d(512)
+export const ffTexture = createCanvas2d(2048)
 
 fillStyle("#fff")
 fillRect(-2, -2, 4, 4)
@@ -14,7 +14,7 @@ fillStyle("#000")
 
 
 let seed = rnd(33333)
-let s = 0.05
+let s = 0.02
 const tree = q3()
 
 const ff = field(100, 1, ffCell)
@@ -28,7 +28,7 @@ function ffCell(x, y) {
     // let d = hypot(x,y)
     let a = noise(x * 13, y * 13, seed)
     a += Math.atan2(y-0.5, x)
-    // a += Math.atan2(y+0.2, x+0.2)
+    a += Math.atan2(y+0.2, x+0.2)
     // a += Math.atan2(y-0.2, x+0.2)
     // a += Math.atan2(y+0.2, x-0.2)
     return a
