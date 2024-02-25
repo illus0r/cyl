@@ -6,9 +6,15 @@ export const ffTexture = createCanvas2d(512)
 
 fillStyle("#fff")
 fillRect(-2, -2, 4, 4)
-strokeStyle("#000")
+
+fillStyle("#000")
+// strokeStyle("#f00")
+// strokeWidth(0.01)
+
+
+
 let seed = rnd(33333)
-let s = 0.01
+let s = 0.05
 const tree = q3()
 
 const ff = field(100, 1, ffCell)
@@ -16,13 +22,13 @@ const ff = field(100, 1, ffCell)
 many(1111, randomPoint)
     .map(flow)
     .map(fatLine)
-    .forEach(stroke)
+    .forEach(drawPolygon)
 
 function ffCell(x, y) {
     // let d = hypot(x,y)
     let a = noise(x * 13, y * 13, seed)
-    a += Math.atan2(y-0.2, x-0.2)
-    a += Math.atan2(y+0.2, x+0.2)
+    a += Math.atan2(y-0.5, x)
+    // a += Math.atan2(y+0.2, x+0.2)
     // a += Math.atan2(y-0.2, x+0.2)
     // a += Math.atan2(y+0.2, x-0.2)
     return a
@@ -55,10 +61,9 @@ function fatLine(pts) {
     return result
 }
 
-function stroke(line) {
+function drawPolygon(line) {
     setShape(line);
-    strokeWidth(0.001)
-    fillStyle("#000")
+    // strokeShape()
     fillShape()
 }
 
@@ -91,12 +96,18 @@ function flow(pt) {
         result.push([x, y])
     }
 
-    if (result.length > 11) {
+    if (result.length > 100) {
         result.forEach(([x,y]) => tree.insert(x,y,0.01))
         return result;
     }
     return []
 }
+
+
+
+
+
+// lib
 
 function rnd(x = 1, y = 0) {
     return y + (window.fxrand||random)() * x;
@@ -122,7 +133,6 @@ function pick(arr) {
     return arr[rndi(arr.length)];
 }
 
-// utility
 function many(x, fn) {
     return [...Array(x | 0)].map((_, i) => fn(i));
 }
@@ -131,6 +141,7 @@ function clamp(x, a, b) {
     return max(min(b, x), a);
 }
 
+// tx Piter Pasma
 function noise(x, y, z = 7127, t = 3141) {
     let w0 = Math.sin(0.3 * x + 1.4 * t + 2.0 + 2.5 * Math.sin(0.4 * y + -1.3 * t + 1.0));
     let w1 = Math.sin(0.2 * y + 1.5 * t + 2.8 + 2.3 * Math.sin(0.5 * z + -1.2 * t + 0.5));
@@ -138,7 +149,73 @@ function noise(x, y, z = 7127, t = 3141) {
     return (w0 + w1 + w2) / 3;
 }
 
-// palette
+// field
+function field(q, ratio, fn) {
+    const kw = ratio < 1 ? 1 : ratio;
+    const kh = ratio > 1 ? 1 : 1 / ratio;
+    const w = q * kw, h = q * kh;
+    const fld = many(h, y => many(w, x => {
+        return fn((x - w / 2) / q, (y - h / 2) / q);
+    }));
+    return (x, y) => {
+        const row = fld[(y * q + h / 2) | 0];
+        return row && row[(x * q + w / 2) | 0];
+    }
+}
+
+// point in axis aligned bounding box test
+function ptXaabb(cx, cy, hw, hh, x, y) {
+    return cx - hw < x && cx + hw > x && cy - hh < y && cy + hh > y;
+}
+
+// 2 axis aligned bounding boxes intersection test
+function aabbXaabb(x1, y1, w1, h1, x2, y2, w2, h2) {
+    return abs(x1 - x2) < w1 + w2 ? abs(y1 - y2) < h1 + h2 : 0;
+}
+
+// quadtree
+function q3(cx = 0, cy = 0, hw = .5, hh = hw) {
+    const w = hw / 2, h = hh / 2, children = [], points = [];
+    return {
+        insert(x, y, r) {
+            if (!ptXaabb(cx, cy, hw, hh, x, y))
+                return 0;
+            if (points.length < 4) {
+                points.push({x, y, r});
+                return 1;
+            }
+            !children[0] && children.push(
+                q3(cx - w, cy - h, w, h),
+                q3(cx + w, cy - h, w, h),
+                q3(cx + w, cy + h, w, h),
+                q3(cx - w, cy + h, w, h)
+            );
+            for (let i = 0; i < 4; i++)
+                if (children[i].insert(x, y, r))
+                    return 1;
+            return 0;
+
+        },
+        query(x, y, w, h = w) {
+            const result = [];
+            if (!aabbXaabb(x, y, w, h, cx, cy, hw, hh))
+                return result;
+            for (let i = 0; i < points.length; i++) {
+                const p = points[i];
+                if (ptXaabb(x, y, w, h, p.x, p.y))
+                    result.push(p);
+            }
+            if (!children[0])
+                return result;
+            for (let i = 0; i < 4; i++)
+                result.push(...children[i].query(x, y, w, h));
+            return result;
+        }
+    }
+}
+
+/////// canvas
+
 function palette(colors) {
     state.palette = colors;
 }
@@ -220,70 +297,4 @@ function fillRect(x, y, w, h) {
     const ctx = state.last;
     ctx.fillRect(x, y, w, h)
 }
-
-// field
-function field(q, ratio, fn) {
-    const kw = ratio < 1 ? 1 : ratio;
-    const kh = ratio > 1 ? 1 : 1 / ratio;
-    const w = q * kw, h = q * kh;
-    const fld = many(h, y => many(w, x => {
-        return fn((x - w / 2) / q, (y - h / 2) / q);
-    }));
-    return (x, y) => {
-        const row = fld[(y * q + h / 2) | 0];
-        return row && row[(x * q + w / 2) | 0];
-    }
-}
-
-// point in axis aligned bounding box test
-function ptXaabb(cx, cy, hw, hh, x, y) {
-    return cx - hw < x && cx + hw > x && cy - hh < y && cy + hh > y;
-}
-
-// 2 axis aligned bounding boxes intersection test
-function aabbXaabb(x1, y1, w1, h1, x2, y2, w2, h2) {
-    return abs(x1 - x2) < w1 + w2 ? abs(y1 - y2) < h1 + h2 : 0;
-}
-
-// quadtree
-function q3(cx = 0, cy = 0, hw = .5, hh = hw) {
-    const w = hw / 2, h = hh / 2, children = [], points = [];
-    return {
-        insert(x, y, r) {
-            if (!ptXaabb(cx, cy, hw, hh, x, y))
-                return 0;
-            if (points.length < 4) {
-                points.push({x, y, r});
-                return 1;
-            }
-            !children[0] && children.push(
-                q3(cx - w, cy - h, w, h),
-                q3(cx + w, cy - h, w, h),
-                q3(cx + w, cy + h, w, h),
-                q3(cx - w, cy + h, w, h)
-            );
-            for (let i = 0; i < 4; i++)
-                if (children[i].insert(x, y, r))
-                    return 1;
-            return 0;
-
-        },
-        query(x, y, w, h = w) {
-            const result = [];
-            if (!aabbXaabb(x, y, w, h, cx, cy, hw, hh))
-                return result;
-            for (let i = 0; i < points.length; i++) {
-                const p = points[i];
-                if (ptXaabb(x, y, w, h, p.x, p.y))
-                    result.push(p);
-            }
-            if (!children[0])
-                return result;
-            for (let i = 0; i < 4; i++)
-                result.push(...children[i].query(x, y, w, h));
-            return result;
-        }
-    }
-}
-
 

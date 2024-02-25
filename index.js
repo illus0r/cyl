@@ -6,6 +6,8 @@ import {Pr} from './shdr/pr.js'
 import {Tx} from './shdr/tx.js'
 import {rsz} from './shdr/rsz.js'
 import {textures} from "./textures/textures.js"
+import {ffTexture} from "./canvas-textures/ff.js";
+
 let isPlaying = true
 let rndjs=[...Array(4)].map(_=>[fxrand()])
 let mouse = [.5, .5];
@@ -235,7 +237,8 @@ void main(){
 let prDr = new Pr(gl)
 
 let u_tx=[]
-let txBg = new Tx(gl, {src:'1.png',loc:4})
+let txBg = new Tx(gl, {src:ffTexture,loc:4})
+//let txBg = new Tx(gl, {src:"1.png",loc:4})
 let txFg = new Tx(gl, {src:'2.png',loc:5})
 let u_frame=0
 window.addEventListener('resize',resize, true)
