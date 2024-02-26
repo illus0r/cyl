@@ -1,21 +1,25 @@
+import {settings} from "../settings.js";
+
 const {PI, min, max, sin, cos, atan2, hypot, sign, pow, abs, sqrt, random} = Math;
 const TAU = PI * 2;
 const state = {last: null, lastCanvas: null};
 
-export const ffTexture = createCanvas2d(2048)
+export const ffTexture = createCanvas2d(settings.ffTx.textureSize)
 
 fillStyle("#fff")
 fillRect(-2, -2, 4, 4)
 
-fillStyle("#000")
+
 // strokeStyle("#f00")
 // strokeWidth(0.01)
 
 
 
 let seed = rnd(33333)
-let s = 0.02
+let s = settings.ffTx.lineWidth
 const tree = q3()
+
+let centers = many(2, () => [rnds(), rnds()])
 
 const ff = field(100, 1, ffCell)
 
@@ -26,9 +30,9 @@ many(1111, randomPoint)
 
 function ffCell(x, y) {
     // let d = hypot(x,y)
-    let a = noise(x * 13, y * 13, seed)
-    a += Math.atan2(y-0.5, x)
-    a += Math.atan2(y+0.2, x+0.2)
+    let a = noise(x * settings.ffTx.noiseScale, y * settings.ffTx.noiseScale, seed)
+    centers.map(([cx,cy]) => a += Math.atan2(y-cx, x-cy))
+
     // a += Math.atan2(y-0.2, x+0.2)
     // a += Math.atan2(y+0.2, x-0.2)
     return a
@@ -62,6 +66,7 @@ function fatLine(pts) {
 }
 
 function drawPolygon(line) {
+    fillStyle(pick(["#00f","#0f0","#f00"]))
     setShape(line);
     // strokeShape()
     fillShape()
@@ -87,10 +92,15 @@ function flow(pt) {
     let y = pt[1];
     let result = [];
     let da = 0;//pick([0,PI/2,-PI/2,PI]);
+    let prevAngle;
     for (let i = 0; i< 222; i++) {
         let a = ff(x, y);
         if (!a || !ptXaabb(0,0,0.48,0.48,x,y) ||collide(x,y))
             break;
+        if (prevAngle && Math.abs(a - prevAngle) > 0.5) {
+            break
+        }
+        prevAngle = a;
         x += cos(a+da) * step
         y += sin(a+da) * step
         result.push([x, y])

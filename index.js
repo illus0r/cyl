@@ -279,7 +279,7 @@ function frame() {
 	else{ 
 		timeInit+=timeNew-timePrev
 	}
-	requestAnimationFrame(frame)
+	time < 5 && requestAnimationFrame(frame)
 }
 if(gl.getProgramParameter(pr, gl.LINK_STATUS)) frame()
 
