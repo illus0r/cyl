@@ -14,7 +14,6 @@ fillRect(-2, -2, 4, 4)
 // strokeWidth(0.01)
 
 
-
 let seed = rnd(33333)
 let s = settings.ffTx.lineWidth
 const tree = q3()
@@ -31,7 +30,7 @@ many(1111, randomPoint)
 function ffCell(x, y) {
     // let d = hypot(x,y)
     let a = noise(x * settings.ffTx.noiseScale, y * settings.ffTx.noiseScale, seed)
-    centers.map(([cx,cy]) => a += Math.atan2(y-cx, x-cy))
+    centers.map(([cx, cy]) => a += Math.atan2(y - cx, x - cy))
 
     // a += Math.atan2(y-0.2, x+0.2)
     // a += Math.atan2(y+0.2, x-0.2)
@@ -66,7 +65,7 @@ function fatLine(pts) {
 }
 
 function drawPolygon(line) {
-    fillStyle(pick(["#00f","#0f0","#f00"]))
+    fillStyle(pick(["#00f", "#0f0", "#f00"]))
     setShape(line);
     // strokeShape()
     fillShape()
@@ -76,12 +75,12 @@ function randomPoint() {
     let a = rndr();
     let d = rnd(0.35)
     // return [cos(a)*d, sin(a)*d]
-    return[rnds(),rnds()]
+    return [rnds(), rnds()]
 }
 
-function collide(x,y) {
-    let box = tree.query(x, y, s*83);
-    let cirlce = box.filter(p => hypot(p.x - x, p.y - y) < s*2);
+function collide(x, y) {
+    let box = tree.query(x, y, s * 83);
+    let cirlce = box.filter(p => hypot(p.x - x, p.y - y) < s * 2);
     // debugger
     return cirlce.length;
 }
@@ -93,34 +92,32 @@ function flow(pt) {
     let result = [];
     let da = 0;//pick([0,PI/2,-PI/2,PI]);
     let prevAngle;
-    for (let i = 0; i< 222; i++) {
+    for (let i = 0; i < 222; i++) {
         let a = ff(x, y);
-        if (!a || !ptXaabb(0,0,0.48,0.48,x,y) ||collide(x,y))
-            break;
-        if (prevAngle && Math.abs(a - prevAngle) > 0.5) {
-            break
-        }
-        prevAngle = a;
-        x += cos(a+da) * step
-        y += sin(a+da) * step
+
+        if (!a) break;
+        if (!ptXaabb(0, 0, 0.5 - s*2, 0.5 - s*2, x, y)) break;
+        if (collide(x, y)) break
+        if (i && Math.abs(a - prevAngle) > 0.5) break
+
+        x += cos(a + da) * step
+        y += sin(a + da) * step
         result.push([x, y])
+        prevAngle = a;
     }
 
-    if (result.length > 100) {
-        result.forEach(([x,y]) => tree.insert(x,y,0.01))
+    if (result.length > settings.ffTx.minLineLength) {
+        result.forEach(([x, y]) => tree.insert(x, y, 0.01))
         return result;
     }
     return []
 }
 
 
-
-
-
 // lib
 
 function rnd(x = 1, y = 0) {
-    return y + (window.fxrand||random)() * x;
+    return y + (window.fxrand || random)() * x;
 }
 
 function rndi(x, y = 0) {
@@ -231,8 +228,8 @@ function palette(colors) {
 }
 
 // canvas
-function createCanvas2d(w,h) {
-    createCanvas(w,h)
+function createCanvas2d(w, h) {
+    createCanvas(w, h)
     const c = state.lastCanvas;
     const ctx = c.getContext("2d");
     let sc = min(c.width, c.height);
@@ -242,7 +239,7 @@ function createCanvas2d(w,h) {
     return ctx;
 }
 
-function createCanvas(w, h = w ) {
+function createCanvas(w, h = w) {
     const c = document.createElement("canvas");
     c.width = w;
     c.height = h

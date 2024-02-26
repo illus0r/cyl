@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Title</title>
+</head>
+<body>
+<script>
+    const fxrand = Math.random
+</script>
+<script type="module">
+
+    import {textures} from "./textures.js";
+
+    const s = 800;
+    const canvas = document.createElement("canvas");
+    document.body.append(canvas)
+    const w = canvas.width = s
+    const h = canvas.height = s
+    const gl = canvas.getContext('webgl2');
+
+    window.fullScreenTriangle = new Float32Array([-1, 3, -1, -1, 3, -1])
+
+    const vertexShader = `
+in vec2 pt = fullScreenTriangle;
+void main() {
+    gl_Position = vec4(pt, 0.0, 1.0);
+}`;
+
+    const fragmentShader = `
+${textures}
+
+out vec4 o;
+void main() {
+    vec2 uv = gl_FragCoord.xy / vec2( ${[w, h]} );
+    // o = texture_tx_brim(uv);
+    o = texture_tx_brim_bottom(uv);
+    // o = texture_tx_crown(uv);
+    // o = texture_tx_crown_inner(uv);
+    // o = texture_tx_crown_tip(uv);
+}`;
+
+    console.log(fragmentShader)
+
+    const callbacks = [];
+    const pid = gl.createProgram();
+    shader(vertexShader, gl.VERTEX_SHADER);
+    shader(fragmentShader, gl.FRAGMENT_SHADER);
+    gl.linkProgram(pid);
+    gl.useProgram(pid);
+    gl.useProgram(pid);
+    callbacks.forEach(cb => cb());
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+
+    function print(str, i, message) {
+        if (!window.log) {
+            window.log = document.createElement('div');
+            window.log.style.fontFamily = 'Courier New, monospace';
+            window.log.style.position = 'fixed';
+            window.log.style.top = '0';
+            window.log.innerHTML = "<h1>SHADER ERROR<h1>"
+            document.body.append(window.log);
+        }
+        let line = 1 + i;
+        let currentLine = line === +message.split(':')[2];
+        let msg = ("" + line).padStart(4, "0") + ': ' + str.split(' ').join('&nbsp;');
+        if (currentLine)
+            msg = '<br>' + message + '<br>' + msg + '<br><br>';
+        window.log.innerHTML += `<div ${currentLine && 'style="background:#900;color:#fff"'}>${msg}</div>`
+    }
+
+    function shader(src, type) {
+        const id = gl.createShader(type);
+        src = prepare(src);
+        console.log(src)
+        gl.shaderSource(id, src);
+        gl.compileShader(id);
+        const message = gl.getShaderInfoLog(id);
+        if (message) {
+            src.split('\n').map((line, i) => print(line, i, message))
+            throw message;
+        }
+
+        gl.attachShader(pid, id);
+    }
+
+    function prepare(code) {
+
+        let index = 0;
+        code = code.split('\n').map(line => {
+            if (line.startsWith('in'))
+                line = attribute(line);
+            else if (~line.indexOf('sampler2D'))
+                line = sampler(line, index++);
+            else if (~line.indexOf('uniform'))
+                line = uniform(line);
+            return line;
+        }).join('\n');
+
+        code = '#version 300 es\nprecision highp float;\n' + code;
+
+        return code;
+    }
+
+    function lineParams(line) {
+        const l = line.trim().split(/\s+/);
+        const size = +l[1].split('vec')[1] || 1;
+        const code = 'return () =>' + line.split('=')[1];
+        // console.log(code)
+        const value = (new Function('', code))();
+        return [l[2], size, value, line.split('=')[0].trim() + ';'];
+    }
+
+    function sampler(line, index) {
+
+        const [name, size, value, newLine] = lineParams(line);
+        const texture = gl.createTexture();
+
+        console.log('activeTexture', index)
+        gl.activeTexture(gl.TEXTURE0 + index);
+        gl.bindTexture(gl.TEXTURE_2D, texture);
+
+        function texParam(key, value) {
+            gl.texParameteri(gl.TEXTURE_2D, key, value);
+        }
+
+        texParam(gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        texParam(gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        texParam(gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        texParam(gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+        gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, true);
+        let loc;
+        callbacks.push(() => {
+            if (!loc)
+                loc = gl.getUniformLocation(pid, name);
+            gl.activeTexture(gl.TEXTURE0 + index);
+            gl.bindTexture(gl.TEXTURE_2D, texture);
+            gl.uniform1i(loc, index);
+            const data = value();
+            gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, gl.RGBA, gl.UNSIGNED_BYTE,
+                data.canvas ? data.canvas : data);
+        });
+
+        return newLine;
+    }
+
+    function uniform(line) {
+        const [name, size, value, newLine] = lineParams(line);
+        const f = gl[`uniform${size}f`];
+        let loc;
+        callbacks.push(() => {
+            if (!loc)
+                loc = gl.getUniformLocation(pid, name);
+            const v = value();
+            // console.log(name, 'uniform set value', ...v)
+            f.call(gl, loc, ...v)
+        });
+        return newLine;
+    }
+
+    function attribute(line) {
+        const [name, size, value, newLine] = lineParams(line);
+        const bufferId = gl.createBuffer();
+        let type, loc;
+        callbacks.push(() => {
+            gl.bindBuffer(gl.ARRAY_BUFFER, bufferId);
+            if (!loc) {
+                loc = gl.getAttribLocation(pid, name);
+                gl.enableVertexAttribArray(loc);
+            }
+            type = type ? gl.STATIC_DRAW : gl.DYNAMIC_DRAW;
+            const data = value();
+            gl.bufferData(gl.ARRAY_BUFFER, data, type);
+            gl.vertexAttribPointer(loc, size, gl.FLOAT, false, 0, 0);
+        })
+        return newLine;
+    }
+
+</script>
+</body>
+</html>
